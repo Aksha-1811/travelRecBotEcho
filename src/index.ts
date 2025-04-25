@@ -64,9 +64,13 @@ adapter.onTurnError = onTurnErrorHandler;
 const myBot = new EchoBot();
 
 // Listen for incoming requests.
-server.post('/api/messages', (req, res, next) => {
-    // Route received a request to adapter for processing
-    adapter.process(req, res, async (context) => await myBot.run(context));
+server.post('/api/messages', async (req, res) => {
+  await adapter.processActivity(req, res, async (context) => {
+    await myBot.run(context);
+  });
+});
+server.listen(process.env.port || process.env.PORT || 3978, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
 });
 
 // Listen for Upgrade requests for Streaming.
