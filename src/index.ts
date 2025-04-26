@@ -12,50 +12,47 @@ import {
 import { EchoBot } from './bot';
 import { config } from 'dotenv';
 
+// Load environment variables
 const ENV_FILE = path.join(__dirname, '..', '.env');
 config({ path: ENV_FILE });
 
+// Get the port
 const port = process.env.PORT || process.env.port || 3978;
 
-const appId = process.env.MicrosoftAppId || '';
-const appPassword = process.env.MicrosoftAppPassword || '';
+// Correct Authentication Configuration
+const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(process.env as ConfigurationBotFrameworkAuthenticationOptions);
 
-const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication({
-    MicrosoftAppId: appId,
-    MicrosoftAppPassword: appPassword,
-    MicrosoftAppType: 'MultiTenant',
-    MicrosoftAppTenantId: '', // optional
-});
-
-
+// Create Adapter
 const adapter = new CloudAdapter(botFrameworkAuthentication);
 
+// Error Handler
 adapter.onTurnError = async (context, error) => {
-    console.error(`\n [onTurnError] unhandled error: ${ error }`);
+    console.error(`\n [onTurnError] unhandled error: ${error}`);
     await context.sendActivity('The bot encountered an error or bug.');
     await context.sendActivity('To continue to run this bot, please fix the bot source code.');
 };
 
+// Create the bot
 const myBot = new EchoBot();
 
 // Create HTTP server
 const server = restify.createServer();
 server.use(restify.plugins.bodyParser());
 
-// ✅ Only one listen call
+// Listen for incoming requests
 server.listen(port, () => {
     console.log(`\nBot is listening on port ${port}`);
-    console.log('\nTest in Web Chat or Emulator: http://localhost:' + port + '/api/messages');
+    console.log(`\nTest in Web Chat or Emulator: http://localhost:${port}/api/messages`);
 });
 
-// Handle messages
+// Handle incoming messages
 server.post('/api/messages', async (req, res) => {
     await adapter.process(req, res, async (context) => {
         await myBot.run(context);
     });
 });
 
-// Handle WebSocket upgrade
+// Handle WebSocket connections
 server.on('upgrade', async (req, socket, head) => {
     const streamingAdapter = new CloudAdapter(botFrameworkAuthentication);
     streamingAdapter.onTurnError = adapter.onTurnError;
