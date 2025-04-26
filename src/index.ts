@@ -17,7 +17,17 @@ config({ path: ENV_FILE });
 
 const port = process.env.PORT || process.env.port || 3978;
 
-const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(process.env as ConfigurationBotFrameworkAuthenticationOptions);
+const appId = process.env.MicrosoftAppId || '';
+const appPassword = process.env.MicrosoftAppPassword || '';
+
+const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication({
+    MicrosoftAppId: appId,
+    MicrosoftAppPassword: appPassword,
+    MicrosoftAppType: 'MultiTenant',
+    MicrosoftAppTenantId: '', // optional
+});
+
+
 const adapter = new CloudAdapter(botFrameworkAuthentication);
 
 adapter.onTurnError = async (context, error) => {
