@@ -4,57 +4,50 @@
 import * as path from 'path';
 import * as restify from 'restify';
 import { INodeSocket } from 'botframework-streaming';
-
 import {
     CloudAdapter,
     ConfigurationBotFrameworkAuthentication,
     ConfigurationBotFrameworkAuthenticationOptions
 } from 'botbuilder';
-
 import { EchoBot } from './bot';
-
 import { config } from 'dotenv';
+
 const ENV_FILE = path.join(__dirname, '..', '.env');
 config({ path: ENV_FILE });
 
-// Create server
+const port = process.env.PORT || process.env.port || 3978;
+
+const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(process.env as ConfigurationBotFrameworkAuthenticationOptions);
+const adapter = new CloudAdapter(botFrameworkAuthentication);
+
+adapter.onTurnError = async (context, error) => {
+    console.error(`\n [onTurnError] unhandled error: ${ error }`);
+    await context.sendActivity('The bot encountered an error or bug.');
+    await context.sendActivity('To continue to run this bot, please fix the bot source code.');
+};
+
+const myBot = new EchoBot();
+
+// Create HTTP server
 const server = restify.createServer();
 server.use(restify.plugins.bodyParser());
 
-const PORT = process.env.PORT || 3978;
-server.listen(PORT, () => {
-    console.log(`\n${server.name} listening to ${server.url}`);
-    console.log('\nTo talk to your bot, open the Bot Framework Emulator.');
+// ✅ Only one listen call
+server.listen(port, () => {
+    console.log(`\nBot is listening on port ${port}`);
+    console.log('\nTest in Web Chat or Emulator: http://localhost:' + port + '/api/messages');
 });
 
-// Bot Framework Auth
-const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(
-    process.env as ConfigurationBotFrameworkAuthenticationOptions
-);
-
-// Adapter
-const adapter = new CloudAdapter(botFrameworkAuthentication);
-
-// Error Handler
-adapter.onTurnError = async (context, error) => {
-    console.error(`\n [onTurnError] unhandled error: ${error}`);
-    await context.sendActivity('The bot encountered an error.');
-};
-
-// Bot logic
-const myBot = new EchoBot();
-
-// 🔁 FIXED: Correct method for CloudAdapter
+// Handle messages
 server.post('/api/messages', async (req, res) => {
     await adapter.process(req, res, async (context) => {
         await myBot.run(context);
     });
 });
 
-// Streaming (optional)
+// Handle WebSocket upgrade
 server.on('upgrade', async (req, socket, head) => {
     const streamingAdapter = new CloudAdapter(botFrameworkAuthentication);
     streamingAdapter.onTurnError = adapter.onTurnError;
-
     await streamingAdapter.process(req, socket as unknown as INodeSocket, head, (context) => myBot.run(context));
 });
